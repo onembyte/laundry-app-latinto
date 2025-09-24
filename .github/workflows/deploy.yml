@@ -28,6 +28,16 @@ jobs:
       - name: Configure Docker auth
         run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
 
+      # Explicit login fixes "Unauthenticated request" on docker push
+      - name: Docker login to Artifact Registry
+        run: |
+          gcloud auth print-access-token | \
+          docker login -u oauth2accesstoken --password-stdin https://${{ env.REGION }}-docker.pkg.dev
+
+      # Optional (kept for completeness; safe to leave)
+      - name: Configure Docker auth
+        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
+
       # ---------- API ----------
       - name: Build & Push API
         run: |
