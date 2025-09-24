@@ -65,7 +65,15 @@ export default function SettingsMenu() {
             key={it.id}
             role="menuitem"
             href={it.href}
-            onClick={() => setOpen(false)}
+            onClick={(e) => {
+              setOpen(false);
+              if (it.id === "signout") {
+                e.preventDefault();
+                // expire cookie and go to login
+                document.cookie = "auth=; Path=/; Max-Age=0; SameSite=Lax";
+                window.location.href = "/login";
+              }
+            }}
             className={cn(
               "group relative block w-full select-none rounded-lg px-3 py-2 text-left text-sm outline-none",
               // navy-tinted hover to match the palette in both themes
