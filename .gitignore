@@ -13,3 +13,8 @@ node_modules
 *.log
 .env*
 !.env.example
+
+# Python API
+api/.venv
+__pycache__/
+*.pyc
