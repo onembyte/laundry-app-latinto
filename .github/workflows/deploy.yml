@@ -8,7 +8,7 @@ env:
   PROJECT_ID: ${{ vars.PROJECT_ID }}           # onembyte-laundry-latinto
   REGION: ${{ vars.REGION }}                   # southamerica-east1
   REPO_NAME: laundry
-  API_SERVICE: laundry-api
+  API_SERVICE: laundry-api                     # (unused for now)
   FRONTEND_SERVICE: laundry-frontend
 
 jobs:
@@ -18,43 +18,41 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # 1) Authenticate gcloud (v2 requires a separate auth step)
       - name: Auth to Google Cloud
         uses: google-github-actions/auth@v2
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
 
-      # 2) Install gcloud SDK
       - name: Setup gcloud
         uses: google-github-actions/setup-gcloud@v2
         with:
           project_id: ${{ env.PROJECT_ID }}
 
-      # 3) Docker login to Artifact Registry (fixes "Unauthenticated request")
       - name: Docker login to Artifact Registry
         run: |
           gcloud auth print-access-token | \
           docker login -u oauth2accesstoken --password-stdin https://${{ env.REGION }}-docker.pkg.dev
 
-      # ---------- API ----------
-      - name: Build & Push API image
-        run: |
-          API_IMAGE=${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.API_SERVICE }}:${{ github.sha }}
-          docker build -t "$API_IMAGE" ./api
-          docker push "$API_IMAGE"
-          echo "API_IMAGE=$API_IMAGE" >> $GITHUB_ENV
-
-      - name: Deploy API to Cloud Run
-        run: |
-          gcloud run deploy ${{ env.API_SERVICE }} \
-            --image "$API_IMAGE" \
-            --region "${{ env.REGION }}" \
-            --platform managed \
-            --allow-unauthenticated \
-            --port 8080 \
-            --cpu 1 --memory 512Mi
-          API_URL=$(gcloud run services describe ${{ env.API_SERVICE }} --region "${{ env.REGION }}" --format='value(status.url)')
-          echo "API_URL=$API_URL" >> $GITHUB_ENV
+      ############################################
+      # API build/deploy (disabled for now)
+      ############################################
+      # - name: Build & Push API image
+      #   run: |
+      #     API_IMAGE=${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.API_SERVICE }}:${{ github.sha }}
+      #     docker build -t "$API_IMAGE" ./api
+      #     docker push "$API_IMAGE"
+      #     echo "API_IMAGE=$API_IMAGE" >> $GITHUB_ENV
+      #
+      # - name: Deploy API to Cloud Run
+      #   run: |
+      #     gcloud run deploy ${{ env.API_SERVICE }} \
+      #       --image "$API_IMAGE" \
+      #       --region "${{ env.REGION }}" \
+      #       --platform managed \
+      #       --allow-unauthenticated \
+      #       --port 8080 \
+      #       --cpu 1 --memory 512Mi \
+      #       --traffic latest=100
 
       # ---------- Frontend ----------
       - name: Build & Push Frontend image
@@ -72,5 +70,5 @@ jobs:
             --platform managed \
             --allow-unauthenticated \
             --port 8080 \
-            --cpu 1 --memory 512Mi
-
+            --cpu 1 --memory 512Mi \
+            --traffic latest=100

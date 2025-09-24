@@ -1,5 +1,5 @@
 # ---- build stage ----
-FROM node:20 AS build
+FROM mirror.gcr.io/library/node:20 AS build
 WORKDIR /app
 
 # Use pnpm via corepack
