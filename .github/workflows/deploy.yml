@@ -5,8 +5,8 @@ on:
     branches: [ "main" ]
 
 env:
-  PROJECT_ID: ${{ vars.PROJECT_ID }}
-  REGION: ${{ vars.REGION }}
+  PROJECT_ID: ${{ vars.PROJECT_ID }}           # onembyte-laundry-latinto
+  REGION: ${{ vars.REGION }}                   # southamerica-east1
   REPO_NAME: laundry
   API_SERVICE: laundry-api
   FRONTEND_SERVICE: laundry-frontend
@@ -18,25 +18,33 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # 1) Authenticate gcloud (v2 requires a separate auth step)
+      - name: Auth to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      # 2) Install gcloud SDK
       - name: Setup gcloud
         uses: google-github-actions/setup-gcloud@v2
         with:
           project_id: ${{ env.PROJECT_ID }}
-          service_account_key: ${{ secrets.GCP_SA_KEY }}
-          export_default_credentials: true
 
-      - name: Configure Docker auth
-        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
+      # 3) Docker login to Artifact Registry (fixes "Unauthenticated request")
+      - name: Docker login to Artifact Registry
+        run: |
+          gcloud auth print-access-token | \
+          docker login -u oauth2accesstoken --password-stdin https://${{ env.REGION }}-docker.pkg.dev
 
       # ---------- API ----------
-      - name: Build & Push API
+      - name: Build & Push API image
         run: |
           API_IMAGE=${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.API_SERVICE }}:${{ github.sha }}
           docker build -t "$API_IMAGE" ./api
           docker push "$API_IMAGE"
           echo "API_IMAGE=$API_IMAGE" >> $GITHUB_ENV
 
-      - name: Deploy API
+      - name: Deploy API to Cloud Run
         run: |
           gcloud run deploy ${{ env.API_SERVICE }} \
             --image "$API_IMAGE" \
@@ -49,14 +57,14 @@ jobs:
           echo "API_URL=$API_URL" >> $GITHUB_ENV
 
       # ---------- Frontend ----------
-      - name: Build & Push Frontend
+      - name: Build & Push Frontend image
         run: |
           FE_IMAGE=${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.FRONTEND_SERVICE }}:${{ github.sha }}
           docker build -t "$FE_IMAGE" ./laundry-frontend
           docker push "$FE_IMAGE"
           echo "FE_IMAGE=$FE_IMAGE" >> $GITHUB_ENV
 
-      - name: Deploy Frontend
+      - name: Deploy Frontend to Cloud Run
         run: |
           gcloud run deploy ${{ env.FRONTEND_SERVICE }} \
             --image "$FE_IMAGE" \
