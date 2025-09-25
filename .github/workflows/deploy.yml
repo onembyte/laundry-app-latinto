@@ -40,7 +40,6 @@ jobs:
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-          logout: true  # auto-logout in post-step
 
       - name: Set DOCKER_CONFIG to runner temp
         shell: bash
