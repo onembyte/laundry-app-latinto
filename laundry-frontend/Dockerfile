@@ -1,5 +1,5 @@
 # ---- build stage ----
-FROM node:20 AS build
+FROM ghcr.io/nodejs/release:20-bullseye AS build
 WORKDIR /app
 
 # Use pnpm via corepack
@@ -14,7 +14,7 @@ COPY . .
 RUN pnpm build
 
 # ---- run stage ----
-FROM node:20 AS run
+FROM ghcr.io/nodejs/release:20-bullseye AS run
 WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=8080
