@@ -10,10 +10,14 @@ env:
   REPO_NAME: laundry
   API_SERVICE: laundry-api                     # (unused for now)
   FRONTEND_SERVICE: laundry-frontend
+  
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    env:
+      DOCKER_CONFIG: ${{ runner.temp }}/.docker
+      
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -38,6 +42,7 @@ jobs:
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
+          logout: true  # auto-logout in post-step
 
       ############################################
       # API build/deploy (disabled for now)
@@ -61,13 +66,20 @@ jobs:
       #       --traffic latest=100
 
       # ---------- Frontend ----------
-      - name: Build & Push Frontend image
+      # ---------- Build ----------
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build & Push Frontend (cached)
         run: |
           FE_IMAGE=${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.FRONTEND_SERVICE }}:${{ github.sha }}
-          docker build -t "$FE_IMAGE" ./laundry-frontend
-          docker push "$FE_IMAGE"
-          echo "FE_IMAGE=$FE_IMAGE" >> $GITHUB_ENV
+          docker buildx build \
+            --cache-from=type=registry,ref=${FE_IMAGE}-cache \
+            --cache-to=type=registry,ref=${FE_IMAGE}-cache,mode=max \
+            -t "${FE_IMAGE}" ./laundry-frontend
+          docker push "${FE_IMAGE}"
 
+      # ---------- Deploy ----------
       - name: Deploy Frontend to Cloud Run
         run: |
           gcloud run deploy ${{ env.FRONTEND_SERVICE }} \
@@ -77,3 +89,8 @@ jobs:
             --allow-unauthenticated \
             --port 8080 \
             --cpu 1 --memory 512Mi
+      
+      # ---------- Clean cred ----------
+      - name: Cleanup Docker creds
+        if: always()
+        run: rm -f "$DOCKER_CONFIG/config.json"
