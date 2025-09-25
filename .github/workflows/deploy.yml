@@ -15,9 +15,7 @@ env:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    env:
-      DOCKER_CONFIG: ${{ runner.temp }}/.docker
-      
+    
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -43,6 +41,12 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
           logout: true  # auto-logout in post-step
+
+      - name: Set DOCKER_CONFIG to runner temp
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/.docker"
+          echo "DOCKER_CONFIG=$RUNNER_TEMP/.docker" >> "$GITHUB_ENV"
 
       ############################################
       # API build/deploy (disabled for now)
