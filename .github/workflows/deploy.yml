@@ -69,10 +69,6 @@ jobs:
       #       --traffic latest=100
 
       # ---------- Frontend ----------
-      # ---------- Build ----------
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
       - name: Build & Push Frontend image
         run: |
           FE_IMAGE=${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.FRONTEND_SERVICE }}:${{ github.sha }}
@@ -90,8 +86,3 @@ jobs:
             --allow-unauthenticated \
             --port 8080 \
             --cpu 1 --memory 512Mi
-      
-      # ---------- Clean cred ----------
-      - name: Cleanup Docker creds
-        if: always()
-        run: rm -f "$DOCKER_CONFIG/config.json"
