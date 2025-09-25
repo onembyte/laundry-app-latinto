@@ -76,5 +76,4 @@ jobs:
             --platform managed \
             --allow-unauthenticated \
             --port 8080 \
-            --cpu 1 --memory 512Mi \
-            --traffic latest=100
+            --cpu 1 --memory 512Mi
