@@ -44,6 +44,13 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       # ---------- Database ----------
+      - name: Enable Cloud SQL Admin API
+        env:
+          PROJECT_ID: ${{ env.PROJECT_ID }}
+        run: |
+          set -euo pipefail
+          gcloud services enable sqladmin.googleapis.com --project "$PROJECT_ID"
+
       - name: Ensure Cloud SQL Postgres (smallest)
         env:
           INSTANCE: ${{ env.DB_INSTANCE }}
