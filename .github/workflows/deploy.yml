@@ -117,10 +117,16 @@ jobs:
           fi
 
       - name: Start Cloud SQL Proxy
-        uses: google-github-actions/cloud-sql-proxy@v2
-        with:
-          instance_connection_name: ${{ env.DB_INSTANCE_CONN }}
-          credentials_json: ${{ secrets.GCP_SA_KEY }}
+        env:
+          DB_CONN: ${{ env.DB_INSTANCE_CONN }}
+        run: |
+          set -euo pipefail
+          PROXY_VERSION=2.10.1
+          curl -sSfL "https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/v${PROXY_VERSION}/cloud-sql-proxy.linux.amd64" -o cloud-sql-proxy
+          chmod +x cloud-sql-proxy
+          # Use ADC from the auth step (GOOGLE_APPLICATION_CREDENTIALS)
+          ./cloud-sql-proxy "$DB_CONN" --port 5432 --address 127.0.0.1 --credentials-file "$GOOGLE_APPLICATION_CREDENTIALS" &
+          sleep 5
 
       - name: Apply database schema
         env:
