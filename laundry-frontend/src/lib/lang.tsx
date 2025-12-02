@@ -86,6 +86,9 @@ export const STRINGS: Record<LanguageCode, Record<string, string>> = {
     edit_desc: "Find and modify order information.",
     status_title: "Order Status",
     status_desc: "Update the current state of an order.",
+    stock: "Stock",
+    stock_title: "Stock & Inventory",
+    stock_desc: "Quick snapshot of core SKUs and quantities.",
     // status values
     st_in_process: "In process",
     st_done: "Done",
@@ -127,6 +130,9 @@ export const STRINGS: Record<LanguageCode, Record<string, string>> = {
     edit_desc: "Buscar y modificar información de la orden.",
     status_title: "Estado de la orden",
     status_desc: "Actualizar el estado actual de una orden.",
+    stock: "Stock",
+    stock_title: "Stock e Inventario",
+    stock_desc: "Vista rápida de SKUs principales y cantidades.",
     // status values
     st_in_process: "En proceso",
     st_done: "Listo",
@@ -168,6 +174,9 @@ export const STRINGS: Record<LanguageCode, Record<string, string>> = {
     edit_desc: "Rechercher et modifier les informations de la commande.",
     status_title: "Statut de la commande",
     status_desc: "Mettre à jour l'état actuel d'une commande.",
+    stock: "Stock",
+    stock_title: "Stock et Inventaire",
+    stock_desc: "Instantané des principaux SKU et quantités.",
     // status values
     st_in_process: "En cours",
     st_done: "Terminé",
