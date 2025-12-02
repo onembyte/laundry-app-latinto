@@ -14,6 +14,7 @@ env:
   DB_NAME: laundry
   DB_USER: laundry_app
   DB_INSTANCE_CONN: ${{ vars.PROJECT_ID }}:${{ vars.REGION }}:laundry-db
+  DB_SKIP_CREATE: ${{ vars.DB_SKIP_CREATE || 'false' }}   # set to 'true' to skip instance/db/user creation
   
 
 jobs:
@@ -52,6 +53,7 @@ jobs:
           gcloud services enable sqladmin.googleapis.com --project "$PROJECT_ID"
 
       - name: Ensure Cloud SQL Postgres (smallest)
+        if: env.DB_SKIP_CREATE != 'true'
         env:
           INSTANCE: ${{ env.DB_INSTANCE }}
           REGION: ${{ env.REGION }}
@@ -89,6 +91,7 @@ jobs:
           fi
 
       - name: Ensure database and user
+        if: env.DB_SKIP_CREATE != 'true'
         env:
           INSTANCE: ${{ env.DB_INSTANCE }}
           DB_NAME: ${{ env.DB_NAME }}
