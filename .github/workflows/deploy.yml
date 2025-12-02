@@ -63,7 +63,7 @@ jobs:
               --region="$REGION" \
               --storage-size=10 \
               --availability-type=zonal \
-              --storage-auto-resize \
+              --storage-auto-increase \
               --quiet
             STATUS=$?
             set -e
@@ -76,7 +76,7 @@ jobs:
                 --region="$REGION" \
                 --storage-size=10 \
                 --availability-type=zonal \
-                --storage-auto-resize \
+                --storage-auto-increase \
                 --quiet
             fi
           fi
