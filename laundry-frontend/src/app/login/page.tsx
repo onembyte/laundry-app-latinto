@@ -14,6 +14,7 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [isRegister, setIsRegister] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [success, setSuccess] = useState<string | null>(null);
 
   // If already authenticated, bounce to home
   useEffect(() => {
@@ -26,6 +27,7 @@ export default function LoginPage() {
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setSuccess(null);
     setBusy(true);
     try {
       const endpoint = isRegister ? "/api/auth/register" : "/api/auth/login";
@@ -36,8 +38,16 @@ export default function LoginPage() {
         body: JSON.stringify({ username: user, password: pass }),
       });
       if (!res.ok) {
-        const msg = await res.text();
-        throw new Error(msg || "Login failed");
+        let msg = "Request failed";
+        try {
+          const json = await res.json();
+          if (json?.detail) msg = json.detail;
+        } catch {
+          const txt = await res.text();
+          if (txt) msg = txt;
+        }
+        if (res.status === 409) msg = "Username already exists";
+        throw new Error(msg);
       }
       router.replace("/");
     } catch (err: unknown) {
@@ -67,6 +77,7 @@ export default function LoginPage() {
                 <Input type="password" value={pass} onChange={(e) => setPass(e.target.value)} placeholder="••••••••" autoComplete="current-password" />
               </div>
               {error && <p className="text-sm text-destructive">{error}</p>}
+              {success && <p className="text-sm text-emerald-500">{success}</p>}
               <Button type="submit" className="w-full" disabled={busy}>
                 {busy ? "Working..." : isRegister ? "Register" : "Sign in"}
               </Button>
