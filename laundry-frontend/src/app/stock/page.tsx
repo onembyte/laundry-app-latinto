@@ -33,10 +33,8 @@ export default function StockPage() {
   const [adjustMode, setAdjustMode] = useState<"add" | "subtract" | null>(null);
   const [adjustForm, setAdjustForm] = useState({ product_type_id: "", quantity: "" });
 
-  const apiBase = useMemo(
-    () => (process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8080").replace(/\/$/, ""),
-    []
-  );
+  const apiBase = useMemo(() => (process.env.NEXT_PUBLIC_API_BASE || "").replace(/\/$/, ""), []);
+  const apiUrl = (path: string) => (apiBase ? `${apiBase}${path}` : path);
 
   const errorMessage = (err: unknown) => (err instanceof Error ? err.message : "Unexpected error");
 
@@ -44,10 +42,7 @@ export default function StockPage() {
     const run = async () => {
       try {
         setLoading(true);
-        const [stockRes, productRes] = await Promise.all([
-          fetch(`${apiBase}/api/stock`),
-          fetch(`${apiBase}/api/product-types`),
-        ]);
+        const [stockRes, productRes] = await Promise.all([fetch(apiUrl("/api/stock")), fetch(apiUrl("/api/product-types"))]);
         if (!stockRes.ok) throw new Error(`Failed to fetch stock (${stockRes.status})`);
         const stockJson = await stockRes.json();
         setItems(stockJson.data || []);
@@ -80,7 +75,7 @@ export default function StockPage() {
     }
     try {
       setSubmitting(true);
-      const res = await fetch(`${apiBase}/api/product-types`, {
+      const res = await fetch(apiUrl("/api/product-types"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ description: form.description.trim(), unit_price_cents: cents }),
@@ -92,10 +87,7 @@ export default function StockPage() {
       const json = await res.json();
       if (json?.data) {
         // Refresh list from stock endpoint to include stock row and updated_at
-        const [stockRes, productRes] = await Promise.all([
-          fetch(`${apiBase}/api/stock`),
-          fetch(`${apiBase}/api/product-types`),
-        ]);
+        const [stockRes, productRes] = await Promise.all([fetch(apiUrl("/api/stock")), fetch(apiUrl("/api/product-types"))]);
         if (stockRes.ok) {
           const stockJson = await stockRes.json();
           const stockList = Array.isArray(stockJson.data) ? stockJson.data : [];
@@ -133,7 +125,7 @@ export default function StockPage() {
     try {
       setSubmitting(true);
       const endpoint = adjustMode === "subtract" ? "stock/subtract" : "stock/add";
-      const res = await fetch(`${apiBase}/api/${endpoint}`, {
+      const res = await fetch(apiUrl(`/api/${endpoint}`), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ product_type_id: pid, quantity: qty }),
@@ -142,10 +134,7 @@ export default function StockPage() {
         const msg = await res.text();
         throw new Error(msg || "Failed to adjust stock");
       }
-      const [stockRes, productRes] = await Promise.all([
-        fetch(`${apiBase}/api/stock`),
-        fetch(`${apiBase}/api/product-types`),
-      ]);
+      const [stockRes, productRes] = await Promise.all([fetch(apiUrl("/api/stock")), fetch(apiUrl("/api/product-types"))]);
       if (stockRes.ok) {
         const stockJson = await stockRes.json();
         const stockList = Array.isArray(stockJson.data) ? stockJson.data : [];
