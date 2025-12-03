@@ -1,4 +1,4 @@
-export const API_BASE = (process.env.NEXT_PUBLIC_API_BASE || "").replace(/\/$/, "");
+export const API_BASE = (process.env.NEXT_PUBLIC_API_BASE || "https://laundry-api-1035627516949.southamerica-east1.run.app").replace(/\/$/, "");
 
 export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const base = API_BASE || "";

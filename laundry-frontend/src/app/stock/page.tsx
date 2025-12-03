@@ -4,7 +4,8 @@ import BackButton from "@/components/backButton";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useStrings } from "@/lib/lang";
 import { cn } from "@/lib/utils";
-import { useEffect, useMemo, useState } from "react";
+import { API_BASE } from "@/lib/api";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -33,8 +34,8 @@ export default function StockPage() {
   const [adjustMode, setAdjustMode] = useState<"add" | "subtract" | null>(null);
   const [adjustForm, setAdjustForm] = useState({ product_type_id: "", quantity: "" });
 
-  const apiBase = useMemo(() => (process.env.NEXT_PUBLIC_API_BASE || "").replace(/\/$/, ""), []);
-  const apiUrl = (path: string) => (apiBase ? `${apiBase}${path}` : path);
+  const apiBase = useMemo(() => (API_BASE || "").replace(/\/$/, ""), []);
+  const apiUrl = useCallback((path: string) => (apiBase ? `${apiBase}${path}` : path), [apiBase]);
 
   const errorMessage = (err: unknown) => (err instanceof Error ? err.message : "Unexpected error");
 
@@ -60,7 +61,7 @@ export default function StockPage() {
       }
     };
     run();
-  }, [apiBase]);
+  }, [apiUrl]);
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
