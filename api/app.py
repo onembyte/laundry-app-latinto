@@ -226,8 +226,8 @@ def create_product_type(payload: ProductTypeCreate):
             with conn.cursor(row_factory=dict_row) as cur:
                 cur.execute(
                     """
-                    INSERT INTO product_types (description, unit_price_cents)
-                    VALUES (%s, COALESCE(%s, 0))
+                    INSERT INTO product_types (description, date_time_created, unit_price_cents)
+                    VALUES (%s, now(), COALESCE(%s, 0))
                     RETURNING product_type_id AS id, description, unit_price_cents, date_time_created;
                     """,
                     (payload.description, payload.unit_price_cents),
@@ -248,7 +248,7 @@ def create_product_type(payload: ProductTypeCreate):
         raise
     except Exception as exc:  # pragma: no cover
         logger.exception("Failed to create product type: %s", exc)
-        raise HTTPException(status_code=500, detail="Failed to create product type")
+        raise HTTPException(status_code=500, detail=f"Failed to create product type: {exc}")
 
 
 @app.post("/api/stock/add")
@@ -282,7 +282,7 @@ def stock_add(payload: StockAdjust):
         raise
     except Exception as exc:  # pragma: no cover
         logger.exception("Failed to add stock: %s", exc)
-        raise HTTPException(status_code=500, detail="Failed to add stock")
+        raise HTTPException(status_code=500, detail=f"Failed to add stock: {exc}")
 
 
 @app.post("/api/stock/subtract")
@@ -318,7 +318,7 @@ def stock_subtract(payload: StockAdjust):
         raise
     except Exception as exc:  # pragma: no cover
         logger.exception("Failed to subtract stock: %s", exc)
-        raise HTTPException(status_code=500, detail="Failed to subtract stock")
+        raise HTTPException(status_code=500, detail=f"Failed to subtract stock: {exc}")
 
 
 @app.get("/api/stock")
