@@ -5,7 +5,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 COPY requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --upgrade pip && \
+    pip install --no-cache-dir --force-reinstall --no-binary bcrypt -r requirements.txt
 
 COPY . .
 # Cloud Run injects $PORT; default to 8080 for local
