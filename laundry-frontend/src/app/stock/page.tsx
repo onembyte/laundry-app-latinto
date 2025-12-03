@@ -158,9 +158,51 @@ export default function StockPage() {
   };
 
   const statusLabel = (available: number) => {
-    if (available < 20) return { label: "Low", color: "bg-amber-500/15 text-amber-600 dark:text-amber-400", dot: "bg-amber-500" };
-    if (available < 60) return { label: "OK", color: "bg-blue-500/15 text-blue-600 dark:text-blue-400", dot: "bg-blue-500" };
-    return { label: "Healthy", color: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400", dot: "bg-emerald-500" };
+    if (available <= 0) {
+      return {
+        label: "Empty",
+        color: "bg-red-500/15 text-red-600 dark:text-red-400",
+        dot: "bg-red-500",
+        glow: "shadow-[0_0_12px_3px_rgba(239,68,68,0.55)]",
+      };
+    }
+    if (available >= 50) {
+      return {
+        label: "Healthy",
+        color: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
+        dot: "bg-emerald-500",
+        glow: "shadow-[0_0_12px_3px_rgba(16,185,129,0.45)]",
+      };
+    }
+    // Interpolate from red -> amber -> green as available goes from 0 -> 50
+    const ratio = available / 50;
+    // Simple two-step blend: below 10 = amber-heavy, else blend green/amber
+    const isLow = available < 10;
+    const color = isLow
+      ? "bg-amber-500/15 text-amber-600 dark:text-amber-400"
+      : "bg-lime-500/15 text-lime-600 dark:text-lime-400";
+    const dot =
+      ratio < 0.2
+        ? "bg-amber-500"
+        : ratio < 0.4
+        ? "bg-lime-500"
+        : ratio < 0.6
+        ? "bg-green-500"
+        : "bg-emerald-500";
+    const glow =
+      ratio < 0.2
+        ? "shadow-[0_0_12px_3px_rgba(245,158,11,0.45)]"
+        : ratio < 0.4
+        ? "shadow-[0_0_12px_3px_rgba(132,204,22,0.35)]"
+        : ratio < 0.6
+        ? "shadow-[0_0_12px_3px_rgba(34,197,94,0.35)]"
+        : "shadow-[0_0_12px_3px_rgba(16,185,129,0.35)]";
+    return {
+      label: isLow ? "Low" : "OK",
+      color,
+      dot,
+      glow,
+    };
   };
 
   const formatDate = (iso: string) => {
@@ -252,18 +294,18 @@ export default function StockPage() {
                           <td className="py-3 pr-3 text-right font-semibold">{row.available_quantity}</td>
                           <td className="py-3 pr-3 text-right text-sm text-muted-foreground">{formatDate(row.updated_at)}</td>
                           <td className="py-3 pr-3 text-right">
-                            <span
-                              className={cn(
-                                "inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold",
-                                status.color
-                              )}
-                            >
-                              <span className={cn("size-2 rounded-full", status.dot)} />
-                              {status.label}
-                            </span>
-                          </td>
-                        </tr>
-                      );
+                          <span
+                            className={cn(
+                              "inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold",
+                              status.color
+                            )}
+                          >
+                            <span className={cn("size-2 rounded-full", status.dot, status.glow)} />
+                            {status.label}
+                          </span>
+                        </td>
+                      </tr>
+                    );
                     })
                   )}
                 </tbody>

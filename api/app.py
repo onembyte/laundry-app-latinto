@@ -79,6 +79,8 @@ def on_startup() -> None:
     with pool.connection() as conn:
         with conn.cursor() as cur:
             cur.execute("SELECT 1;")
+            # Ensure unique index for stock upserts
+            cur.execute("CREATE UNIQUE INDEX IF NOT EXISTS uq_stock_product_type_id ON stock(product_type_id);")
     logger.info("DB pool initialized")
 
 
@@ -236,8 +238,8 @@ def create_product_type(payload: ProductTypeCreate):
                 # Ensure stock entry exists for this product
                 cur.execute(
                     """
-                    INSERT INTO stock (product_type_id, available_quantity)
-                    VALUES (%s, 0)
+                    INSERT INTO stock (product_type_id, available_quantity, updated_at)
+                    VALUES (%s, 0, NOW())
                     ON CONFLICT (product_type_id) DO NOTHING;
                     """,
                     (row["id"],),

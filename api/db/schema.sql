@@ -29,6 +29,8 @@ CREATE TABLE IF NOT EXISTS stock (
     updated_at         TIMESTAMP NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_stock_product_type_id ON stock(product_type_id);
+-- Ensure one stock row per product_type for UPSERT logic
+CREATE UNIQUE INDEX IF NOT EXISTS uq_stock_product_type_id ON stock(product_type_id);
 
 CREATE TABLE IF NOT EXISTS orders (
     id                  BIGSERIAL PRIMARY KEY,
