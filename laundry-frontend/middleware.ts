@@ -15,7 +15,7 @@ export function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  const auth = req.cookies.get("auth")?.value;
+  const auth = req.cookies.get("session")?.value;
   if (!auth) {
     const url = req.nextUrl.clone();
     url.pathname = "/login";
@@ -29,4 +29,3 @@ export const config = {
   // Run middleware on all routes except static files handled above
   matcher: "/:path*",
 };
-

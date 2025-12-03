@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import Glow from "@/components/ui/glow";
 import { useStrings } from "@/lib/lang";
 import { cn } from "@/lib/utils";
+import { API_BASE } from "@/lib/api";
 
 export default function SettingsMenu() {
   const [open, setOpen] = useState(false);
@@ -82,15 +83,18 @@ export default function SettingsMenu() {
               key={it.id}
               role="menuitem"
               href={it.href}
-              onClick={(e) => {
-                setOpen(false);
-                if (it.id === "signout") {
-                  e.preventDefault();
-                  // expire cookie and go to login
-                  document.cookie = "auth=; Path=/; Max-Age=0; SameSite=Lax";
+            onClick={(e) => {
+              setOpen(false);
+              if (it.id === "signout") {
+                e.preventDefault();
+                fetch(`${API_BASE.replace(/\/$/, "")}/api/auth/logout`, {
+                  method: "POST",
+                  credentials: "include",
+                }).finally(() => {
                   window.location.href = "/login";
-                }
-              }}
+                });
+              }
+            }}
               className={cn(
                 "group relative block w-full select-none rounded-lg px-3 py-2 text-left text-sm outline-none",
                 // navy-tinted hover to match the palette in both themes

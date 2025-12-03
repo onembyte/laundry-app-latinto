@@ -11,7 +11,7 @@ export default function Page() {
 
   // Client-side guard (in addition to middleware) for dev and fallbacks
   useEffect(() => {
-    const hasAuth = document.cookie.split(";").some((c) => c.trim().startsWith("auth="));
+    const hasAuth = document.cookie.split(";").some((c) => c.trim().startsWith("session="));
     if (!hasAuth) router.replace("/login");
   }, [router]);
 
