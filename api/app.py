@@ -86,20 +86,30 @@ def verify_password(pw: str, hashed: str) -> bool:
     return pwd_context.verify(pw, hashed)
 
 
-def create_session(user_id: int, hours: int = 24 * 7) -> str:
+def create_session(user_id: int, hours: int = 24 * 7, conn=None) -> str:
     token = secrets.token_urlsafe(32)
     expires = datetime.utcnow() + timedelta(hours=hours)
-    db_pool = get_pool()
-    with db_pool.connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                """
-                INSERT INTO sessions (session_token, user_id, expires_at)
-                VALUES (%s, %s, %s)
-                """,
-                (token, user_id, expires),
-            )
-            conn.commit()
+    if conn is not None:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            INSERT INTO sessions (session_token, user_id, expires_at)
+            VALUES (%s, %s, %s)
+            """,
+            (token, user_id, expires),
+        )
+    else:
+        db_pool = get_pool()
+        with db_pool.connection() as conn2:
+            with conn2.cursor() as cur2:
+                cur2.execute(
+                    """
+                    INSERT INTO sessions (session_token, user_id, expires_at)
+                    VALUES (%s, %s, %s)
+                    """,
+                    (token, user_id, expires),
+                )
+                conn2.commit()
     return token
 
 
@@ -191,7 +201,7 @@ def login(payload: LoginRequest, response: Response):
                 if not row or not row["active"] or not verify_password(payload.password, row["password_hash"]):
                     raise HTTPException(status_code=401, detail="Invalid credentials")
 
-                token = create_session(row["user_id"])
+                token = create_session(row["user_id"], conn=conn)
                 response.set_cookie(
                     "session",
                     token,
@@ -229,7 +239,7 @@ def register(payload: RegisterRequest, response: Response):
                     (payload.username, hash_password(payload.password)),
                 )
                 row = cur.fetchone()
-                token = create_session(row["user_id"])
+                token = create_session(row["user_id"], conn=conn)
                 response.set_cookie(
                     "session",
                     token,
