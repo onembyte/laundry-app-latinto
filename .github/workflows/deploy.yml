@@ -149,8 +149,16 @@ jobs:
           DB_NAME: ${{ env.DB_NAME }}
         run: |
           set -euo pipefail
-          PSQL="psql \"host=127.0.0.1 port=5432 user=${DB_USER} password=${DB_PASSWORD} dbname=${DB_NAME}\""
-          eval $PSQL -f api/db/schema.sql
+          if [ -z "${DB_PASSWORD:-}" ]; then
+            echo "DB_PASSWORD secret is not set; cannot apply schema."
+            exit 1
+          fi
+          PGPASSWORD="${DB_PASSWORD}" psql \
+            -h 127.0.0.1 \
+            -p 5432 \
+            -U "${DB_USER}" \
+            -d "${DB_NAME}" \
+            -f api/db/schema.sql
 
       ############################################
       # API build/deploy
