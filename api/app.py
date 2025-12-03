@@ -11,8 +11,8 @@ from psycopg_pool import ConnectionPool
 app = FastAPI(title="Laundry API", version="0.1.0")
 logger = logging.getLogger(__name__)
 
-# CORS: lock this down to your domain in prod
-origins = [os.getenv("CORS_ORIGIN", "*")]
+# CORS: lock this down to your domain in prod (comma-separated list supported)
+origins = [o.strip() for o in os.getenv("CORS_ORIGIN", "*").split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
@@ -52,6 +52,11 @@ class CreateOrder(BaseModel):
 class ProductTypeCreate(BaseModel):
     description: str
     unit_price_cents: int
+
+
+class StockAdjust(BaseModel):
+    product_type_id: int
+    quantity: int
 
 
 def get_pool() -> ConnectionPool:
@@ -244,6 +249,102 @@ def create_product_type(payload: ProductTypeCreate):
     except Exception as exc:  # pragma: no cover
         logger.exception("Failed to create product type: %s", exc)
         raise HTTPException(status_code=500, detail="Failed to create product type")
+
+
+@app.post("/api/stock/add")
+def stock_add(payload: StockAdjust):
+    if payload.quantity <= 0:
+        raise HTTPException(status_code=400, detail="Quantity must be greater than zero")
+
+    try:
+        db_pool = get_pool()
+        with db_pool.connection() as conn:
+            with conn.cursor(row_factory=dict_row) as cur:
+                cur.execute("SELECT 1 FROM product_types WHERE product_type_id = %s", (payload.product_type_id,))
+                if cur.fetchone() is None:
+                    raise HTTPException(status_code=404, detail="Product type not found")
+
+                cur.execute(
+                    """
+                    INSERT INTO stock (product_type_id, available_quantity, updated_at)
+                    VALUES (%s, %s, NOW())
+                    ON CONFLICT (product_type_id)
+                    DO UPDATE SET
+                        available_quantity = stock.available_quantity + EXCLUDED.available_quantity,
+                        updated_at = NOW()
+                    RETURNING stock_id AS id, product_type_id, available_quantity, updated_at;
+                    """,
+                    (payload.product_type_id, payload.quantity),
+                )
+                conn.commit()
+                return {"ok": True, "data": cur.fetchone()}
+    except HTTPException:
+        raise
+    except Exception as exc:  # pragma: no cover
+        logger.exception("Failed to add stock: %s", exc)
+        raise HTTPException(status_code=500, detail="Failed to add stock")
+
+
+@app.post("/api/stock/subtract")
+def stock_subtract(payload: StockAdjust):
+    if payload.quantity <= 0:
+        raise HTTPException(status_code=400, detail="Quantity must be greater than zero")
+
+    try:
+        db_pool = get_pool()
+        with db_pool.connection() as conn:
+            with conn.cursor(row_factory=dict_row) as cur:
+                cur.execute("SELECT available_quantity FROM stock WHERE product_type_id = %s", (payload.product_type_id,))
+                row = cur.fetchone()
+                if row is None:
+                    raise HTTPException(status_code=404, detail="Stock row not found")
+
+                available = row["available_quantity"]
+                if available - payload.quantity < 0:
+                    raise HTTPException(status_code=400, detail="Insufficient stock")
+
+                cur.execute(
+                    """
+                    UPDATE stock
+                    SET available_quantity = available_quantity - %s
+                    WHERE product_type_id = %s
+                    RETURNING stock_id AS id, product_type_id, available_quantity, updated_at;
+                    """,
+                    (payload.quantity, payload.product_type_id),
+                )
+                conn.commit()
+                return {"ok": True, "data": cur.fetchone()}
+    except HTTPException:
+        raise
+    except Exception as exc:  # pragma: no cover
+        logger.exception("Failed to subtract stock: %s", exc)
+        raise HTTPException(status_code=500, detail="Failed to subtract stock")
+
+
+@app.get("/api/stock")
+def list_stock():
+    """Return stock rows joined with product descriptions."""
+    try:
+        db_pool = get_pool()
+        with db_pool.connection() as conn:
+            with conn.cursor(row_factory=dict_row) as cur:
+                cur.execute(
+                    """
+                    SELECT
+                        s.stock_id AS id,
+                        s.product_type_id,
+                        pt.description,
+                        s.available_quantity,
+                        s.updated_at
+                    FROM stock s
+                    JOIN product_types pt ON pt.product_type_id = s.product_type_id
+                    ORDER BY s.updated_at DESC NULLS LAST, s.stock_id DESC;
+                    """
+                )
+                return {"ok": True, "data": cur.fetchall()}
+    except Exception as exc:  # pragma: no cover
+        logger.exception("Failed to list stock: %s", exc)
+        raise HTTPException(status_code=500, detail="Failed to list stock")
 
 
 @app.get("/healthz")

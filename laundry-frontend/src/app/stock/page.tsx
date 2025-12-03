@@ -7,22 +7,32 @@ import { cn } from "@/lib/utils";
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 type StockRow = {
   id: number;
+  product_type_id: number;
   description: string;
-  unit_price_cents: number;
   available_quantity: number;
+  updated_at: string;
+};
+
+type ProductOption = {
+  id: number;
+  description: string;
 };
 
 export default function StockPage() {
   const t = useStrings();
   const [items, setItems] = useState<StockRow[]>([]);
+  const [products, setProducts] = useState<ProductOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState({ description: "", price: "" });
   const [submitting, setSubmitting] = useState(false);
+  const [adjustMode, setAdjustMode] = useState<"add" | "subtract" | null>(null);
+  const [adjustForm, setAdjustForm] = useState({ product_type_id: "", quantity: "" });
 
   const apiBase = useMemo(
     () => (process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8080").replace(/\/$/, ""),
@@ -35,10 +45,18 @@ export default function StockPage() {
     const run = async () => {
       try {
         setLoading(true);
-        const res = await fetch(`${apiBase}/api/product-types`);
-        if (!res.ok) throw new Error(`Failed to fetch stock (${res.status})`);
-        const json = await res.json();
-        setItems(json.data || []);
+        const [stockRes, productRes] = await Promise.all([
+          fetch(`${apiBase}/api/stock`),
+          fetch(`${apiBase}/api/product-types`),
+        ]);
+        if (!stockRes.ok) throw new Error(`Failed to fetch stock (${stockRes.status})`);
+        const stockJson = await stockRes.json();
+        setItems(stockJson.data || []);
+
+        if (productRes.ok) {
+          const productJson = await productRes.json();
+          setProducts((productJson.data || []).map((p: any) => ({ id: p.id, description: p.description })));
+        }
         setError(null);
       } catch (err: unknown) {
         setError(errorMessage(err));
@@ -72,9 +90,70 @@ export default function StockPage() {
         throw new Error(msg || "Failed to create product");
       }
       const json = await res.json();
-      if (json?.data) setItems((prev) => [json.data, ...prev]);
+      if (json?.data) {
+        // Refresh list from stock endpoint to include stock row and updated_at
+        const [stockRes, productRes] = await Promise.all([
+          fetch(`${apiBase}/api/stock`),
+          fetch(`${apiBase}/api/product-types`),
+        ]);
+        if (stockRes.ok) {
+          const stockJson = await stockRes.json();
+          setItems(stockJson.data || []);
+        }
+        if (productRes.ok) {
+          const productJson = await productRes.json();
+          setProducts((productJson.data || []).map((p: any) => ({ id: p.id, description: p.description })));
+        }
+      }
       setForm({ description: "", price: "" });
       setShowModal(false);
+      setError(null);
+    } catch (err: unknown) {
+      setError(errorMessage(err));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const onAdjustSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const pid = Number(adjustForm.product_type_id);
+    const qty = Number(adjustForm.quantity);
+    if (!pid || Number.isNaN(pid)) {
+      setError("Product is required");
+      return;
+    }
+    if (!qty || Number.isNaN(qty) || qty <= 0) {
+      setError("Quantity must be greater than zero");
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      const endpoint = adjustMode === "subtract" ? "stock/subtract" : "stock/add";
+      const res = await fetch(`${apiBase}/api/${endpoint}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ product_type_id: pid, quantity: qty }),
+      });
+      if (!res.ok) {
+        const msg = await res.text();
+        throw new Error(msg || "Failed to adjust stock");
+      }
+      const [stockRes, productRes] = await Promise.all([
+        fetch(`${apiBase}/api/stock`),
+        fetch(`${apiBase}/api/product-types`),
+      ]);
+      if (stockRes.ok) {
+        const stockJson = await stockRes.json();
+        setItems(stockJson.data || []);
+      }
+      if (productRes.ok) {
+        const productJson = await productRes.json();
+        setProducts((productJson.data || []).map((p: any) => ({ id: p.id, description: p.description })));
+      }
+      setAdjustForm({ product_type_id: "", quantity: "" });
+      setAdjustMode(null);
       setError(null);
     } catch (err: unknown) {
       setError(errorMessage(err));
@@ -89,11 +168,26 @@ export default function StockPage() {
     return { label: "Healthy", color: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400", dot: "bg-emerald-500" };
   };
 
-  const formatCurrency = (cents: number) => `$${(cents / 100).toFixed(2)}`;
+  const formatDate = (iso: string) => {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return "—";
+    return d.toLocaleString();
+  };
 
   return (
     <main className="min-h-dvh bg-background text-foreground p-4">
       <BackButton />
+      <div className="fixed top-4 left-16 z-40 flex flex-col gap-3">
+        <Button size="sm" variant="secondary" onClick={() => setShowModal(true)}>
+          {t.stock_add}
+        </Button>
+        <Button size="sm" variant="secondary" onClick={() => setAdjustMode("add")}>
+          {t.stock_buy}
+        </Button>
+        <Button size="sm" variant="secondary" onClick={() => setAdjustMode("subtract")}>
+          {t.stock_sell}
+        </Button>
+      </div>
       <div className="mx-auto w-full max-w-5xl space-y-6 pt-10 sm:pt-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h1 className="text-2xl font-semibold">{t.stock_title}</h1>
@@ -114,10 +208,10 @@ export default function StockPage() {
             <table className="w-full min-w-[640px] text-sm border-collapse">
               <thead>
                 <tr className="text-left text-muted-foreground border-b border-border">
-                  <th className="py-2 pr-3 font-medium">ID</th>
-                  <th className="py-2 pr-3 font-medium">Item</th>
-                  <th className="py-2 pr-3 font-medium text-right">Price</th>
+                  <th className="py-2 pr-3 font-medium">Stock ID</th>
+                  <th className="py-2 pr-3 font-medium">Product</th>
                   <th className="py-2 pr-3 font-medium text-right">Available</th>
+                  <th className="py-2 pr-3 font-medium text-right">Updated</th>
                   <th className="py-2 pr-3 font-medium text-right">Status</th>
                 </tr>
               </thead>
@@ -147,8 +241,8 @@ export default function StockPage() {
                       <tr key={row.id} className="border-b border-border/60 last:border-0">
                         <td className="py-3 pr-3 font-mono text-xs">{row.id}</td>
                         <td className="py-3 pr-3 font-medium">{row.description}</td>
-                        <td className="py-3 pr-3 text-right">{formatCurrency(row.unit_price_cents || 0)}</td>
                         <td className="py-3 pr-3 text-right font-semibold">{row.available_quantity}</td>
+                        <td className="py-3 pr-3 text-right text-sm text-muted-foreground">{formatDate(row.updated_at)}</td>
                         <td className="py-3 pr-3 text-right">
                           <span
                             className={cn(
@@ -206,6 +300,58 @@ export default function StockPage() {
                 </Button>
                 <Button type="submit" disabled={submitting}>
                   {submitting ? "Saving..." : t.stock_form_submit}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {adjustMode && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-2xl border border-border bg-card text-card-foreground shadow-2xl">
+            <div className="p-6 border-b border-border">
+              <h2 className="text-lg font-semibold">{t.stock_adjust_title}</h2>
+              <p className="text-sm text-muted-foreground">{t.stock_adjust_desc}</p>
+            </div>
+            <form onSubmit={onAdjustSubmit} className="p-6 space-y-4">
+              <div className="space-y-2">
+                <label className="block text-sm font-medium">{t.stock_select_product}</label>
+                <Select
+                  value={adjustForm.product_type_id}
+                  onValueChange={(v) => setAdjustForm((f) => ({ ...f, product_type_id: v }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choose a product" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {products.map((item) => (
+                      <SelectItem key={item.id} value={String(item.id)}>
+                        {item.description} (#{item.id})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <label className="block text-sm font-medium">{t.stock_quantity}</label>
+                <Input
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={adjustForm.quantity}
+                  onChange={(e) => setAdjustForm((f) => ({ ...f, quantity: e.target.value }))}
+                  placeholder="1"
+                  required
+                />
+              </div>
+              {error && <p className="text-sm text-destructive">{error}</p>}
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <Button type="button" variant="ghost" onClick={() => setAdjustMode(null)}>
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={submitting}>
+                  {submitting ? "Saving..." : adjustMode === "subtract" ? t.stock_sell : t.stock_buy}
                 </Button>
               </div>
             </form>
