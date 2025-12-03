@@ -7,7 +7,6 @@ import { cn } from "@/lib/utils";
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 type StockRow = {
   id: number;
@@ -55,7 +54,8 @@ export default function StockPage() {
 
         if (productRes.ok) {
           const productJson = await productRes.json();
-          setProducts((productJson.data || []).map((p: any) => ({ id: p.id, description: p.description })));
+          const list = Array.isArray(productJson.data) ? productJson.data : [];
+          setProducts(list.map((p: ProductOption) => ({ id: p.id, description: p.description })));
         }
         setError(null);
       } catch (err: unknown) {
@@ -98,11 +98,13 @@ export default function StockPage() {
         ]);
         if (stockRes.ok) {
           const stockJson = await stockRes.json();
-          setItems(stockJson.data || []);
+          const stockList = Array.isArray(stockJson.data) ? stockJson.data : [];
+          setItems(stockList);
         }
         if (productRes.ok) {
           const productJson = await productRes.json();
-          setProducts((productJson.data || []).map((p: any) => ({ id: p.id, description: p.description })));
+          const list = Array.isArray(productJson.data) ? productJson.data : [];
+          setProducts(list.map((p: ProductOption) => ({ id: p.id, description: p.description })));
         }
       }
       setForm({ description: "", price: "" });
@@ -146,11 +148,13 @@ export default function StockPage() {
       ]);
       if (stockRes.ok) {
         const stockJson = await stockRes.json();
-        setItems(stockJson.data || []);
+        const stockList = Array.isArray(stockJson.data) ? stockJson.data : [];
+        setItems(stockList);
       }
       if (productRes.ok) {
         const productJson = await productRes.json();
-        setProducts((productJson.data || []).map((p: any) => ({ id: p.id, description: p.description })));
+        const list = Array.isArray(productJson.data) ? productJson.data : [];
+        setProducts(list.map((p: ProductOption) => ({ id: p.id, description: p.description })));
       }
       setAdjustForm({ product_type_id: "", quantity: "" });
       setAdjustMode(null);
@@ -317,21 +321,19 @@ export default function StockPage() {
             <form onSubmit={onAdjustSubmit} className="p-6 space-y-4">
               <div className="space-y-2">
                 <label className="block text-sm font-medium">{t.stock_select_product}</label>
-                <Select
+                <select
                   value={adjustForm.product_type_id}
-                  onValueChange={(v) => setAdjustForm((f) => ({ ...f, product_type_id: v }))}
+                  onChange={(e) => setAdjustForm((f) => ({ ...f, product_type_id: e.target.value }))}
+                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                  required
                 >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Choose a product" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {products.map((item) => (
-                      <SelectItem key={item.id} value={String(item.id)}>
-                        {item.description} (#{item.id})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  <option value="">Choose a product</option>
+                  {products.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.description} (#{item.id})
+                    </option>
+                  ))}
+                </select>
               </div>
               <div className="space-y-2">
                 <label className="block text-sm font-medium">{t.stock_quantity}</label>
