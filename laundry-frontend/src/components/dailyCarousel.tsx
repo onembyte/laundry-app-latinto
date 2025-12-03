@@ -1,11 +1,9 @@
 "use client";
 
 import { addDays, format, startOfDay } from "date-fns";
-import Link from "next/link";
 import { cn } from "@/lib/utils";
 import Glow from "@/components/ui/glow";
 import { useStrings } from "@/lib/lang";
-import { Button } from "@/components/ui/button";
 
 export default function DayCarousel({
   baseDate = new Date(),

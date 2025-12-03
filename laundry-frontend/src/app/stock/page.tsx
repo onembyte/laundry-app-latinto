@@ -29,6 +29,8 @@ export default function StockPage() {
     []
   );
 
+  const errorMessage = (err: unknown) => (err instanceof Error ? err.message : "Unexpected error");
+
   useEffect(() => {
     const run = async () => {
       try {
@@ -38,8 +40,8 @@ export default function StockPage() {
         const json = await res.json();
         setItems(json.data || []);
         setError(null);
-      } catch (err: any) {
-        setError(err?.message || "Failed to load stock");
+      } catch (err: unknown) {
+        setError(errorMessage(err));
       } finally {
         setLoading(false);
       }
@@ -74,8 +76,8 @@ export default function StockPage() {
       setForm({ description: "", price: "" });
       setShowModal(false);
       setError(null);
-    } catch (err: any) {
-      setError(err?.message || "Failed to create product");
+    } catch (err: unknown) {
+      setError(errorMessage(err));
     } finally {
       setSubmitting(false);
     }
