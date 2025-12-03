@@ -49,6 +49,11 @@ class CreateOrder(BaseModel):
     delivery_at: datetime | None = None
 
 
+class ProductTypeCreate(BaseModel):
+    description: str
+    unit_price_cents: int
+
+
 def get_pool() -> ConnectionPool:
     if pool is None:
         raise HTTPException(status_code=500, detail="Database not initialized")
@@ -176,6 +181,69 @@ def create_order(payload: CreateOrder):
     except Exception as exc:  # pragma: no cover - defensive path
         logger.exception("Failed to create order: %s", exc)
         raise HTTPException(status_code=500, detail="Failed to create order")
+
+
+@app.get("/api/product-types")
+def list_product_types():
+    """Return all product types with current available quantity."""
+    try:
+        db_pool = get_pool()
+        with db_pool.connection() as conn:
+            with conn.cursor(row_factory=dict_row) as cur:
+                cur.execute(
+                    """
+                    SELECT
+                        pt.product_type_id AS id,
+                        pt.description,
+                        pt.unit_price_cents,
+                        pt.date_time_created,
+                        COALESCE(s.available_quantity, 0) AS available_quantity,
+                        COALESCE(s.updated_at, pt.date_time_created) AS updated_at
+                    FROM product_types pt
+                    LEFT JOIN stock s ON s.product_type_id = pt.product_type_id
+                    ORDER BY pt.product_type_id DESC;
+                    """
+                )
+                return {"ok": True, "data": cur.fetchall()}
+    except Exception as exc:  # pragma: no cover
+        logger.exception("Failed to list product types: %s", exc)
+        raise HTTPException(status_code=500, detail="Failed to list product types")
+
+
+@app.post("/api/product-types")
+def create_product_type(payload: ProductTypeCreate):
+    if payload.unit_price_cents < 0:
+        raise HTTPException(status_code=400, detail="Price must be non-negative")
+
+    try:
+        db_pool = get_pool()
+        with db_pool.connection() as conn:
+            with conn.cursor(row_factory=dict_row) as cur:
+                cur.execute(
+                    """
+                    INSERT INTO product_types (description, unit_price_cents)
+                    VALUES (%s, %s)
+                    RETURNING product_type_id AS id, description, unit_price_cents, date_time_created;
+                    """,
+                    (payload.description, payload.unit_price_cents),
+                )
+                row = cur.fetchone()
+                # Ensure stock entry exists for this product
+                cur.execute(
+                    """
+                    INSERT INTO stock (product_type_id, available_quantity)
+                    VALUES (%s, 0)
+                    ON CONFLICT (product_type_id) DO NOTHING;
+                    """,
+                    (row["id"],),
+                )
+                conn.commit()
+                return {"ok": True, "data": row}
+    except HTTPException:
+        raise
+    except Exception as exc:  # pragma: no cover
+        logger.exception("Failed to create product type: %s", exc)
+        raise HTTPException(status_code=500, detail="Failed to create product type")
 
 
 @app.get("/healthz")

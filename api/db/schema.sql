@@ -15,8 +15,11 @@ CREATE TABLE IF NOT EXISTS customers (
 CREATE TABLE IF NOT EXISTS product_types (
     product_type_id   INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     description       VARCHAR NOT NULL,
+    unit_price_cents  INTEGER NOT NULL DEFAULT 0,
     date_time_created TIMESTAMP NOT NULL DEFAULT NOW()
 );
+ALTER TABLE product_types
+    ADD COLUMN IF NOT EXISTS unit_price_cents INTEGER NOT NULL DEFAULT 0;
 
 -- Información de stock
 CREATE TABLE IF NOT EXISTS stock (
