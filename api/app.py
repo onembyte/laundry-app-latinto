@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 origins = [os.getenv("CORS_ORIGIN", "*")]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

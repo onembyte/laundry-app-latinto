@@ -1,5 +1,13 @@
 import "./globals.css";
 import Providers from "./providers";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "La Tinto",
+  icons: {
+    icon: "/favicon.ico",
+  },
+};
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
