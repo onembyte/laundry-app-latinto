@@ -87,7 +87,7 @@ export const STRINGS: Record<LanguageCode, Record<string, string>> = {
     status_title: "Order Status",
     status_desc: "Update the current state of an order.",
     stock: "Stock",
-    stock_title: "Stock & Inventory",
+    stock_title: "Stock",
     stock_desc: "Quick snapshot of core SKUs and quantities.",
     dashboard: "Dashboard",
     stock_add: "Add product",
@@ -102,6 +102,7 @@ export const STRINGS: Record<LanguageCode, Record<string, string>> = {
     stock_adjust_desc: "Select a product and quantity to apply.",
     stock_select_product: "Product",
     stock_quantity: "Quantity",
+    stock_filter_desc: "Filter description",
     // status values
     st_in_process: "In process",
     st_done: "Done",
@@ -151,7 +152,7 @@ export const STRINGS: Record<LanguageCode, Record<string, string>> = {
     stock_form_title: "Nuevo producto",
     stock_form_desc: "Crea un tipo de producto y define su precio unitario.",
     stock_form_description: "Descripción",
-    stock_form_price: "Precio (USD)",
+    stock_form_price: "Precio (ARG)",
     stock_form_submit: "Crear",
     stock_buy: "Compras",
     stock_sell: "Ventas",
@@ -159,6 +160,7 @@ export const STRINGS: Record<LanguageCode, Record<string, string>> = {
     stock_adjust_desc: "Selecciona un producto y cantidad a aplicar.",
     stock_select_product: "Producto",
     stock_quantity: "Cantidad",
+    stock_filter_desc: "Filtrar descripción",
     // status values
     st_in_process: "En proceso",
     st_done: "Listo",
@@ -216,6 +218,7 @@ export const STRINGS: Record<LanguageCode, Record<string, string>> = {
     stock_adjust_desc: "Sélectionnez un produit et une quantité à appliquer.",
     stock_select_product: "Produit",
     stock_quantity: "Quantité",
+    stock_filter_desc: "Filtrer la description",
     // status values
     st_in_process: "En cours",
     st_done: "Terminé",

@@ -33,6 +33,7 @@ export default function StockPage() {
   const [submitting, setSubmitting] = useState(false);
   const [adjustMode, setAdjustMode] = useState<"add" | "subtract" | null>(null);
   const [adjustForm, setAdjustForm] = useState({ product_type_id: "", quantity: "" });
+  const [descFilter, setDescFilter] = useState("");
 
   const apiBase = useMemo(() => (API_BASE || "").replace(/\/$/, ""), []);
   const apiUrl = useCallback((path: string) => (apiBase ? `${apiBase}${path}` : path), [apiBase]);
@@ -168,94 +169,108 @@ export default function StockPage() {
     return d.toLocaleString();
   };
 
+  const filteredItems = useMemo(() => {
+    const needle = descFilter.trim().toLowerCase();
+    if (!needle) return items;
+    return items.filter((it) => it.description.toLowerCase().includes(needle));
+  }, [descFilter, items]);
+
   return (
     <main className="min-h-dvh bg-background text-foreground p-4">
       <BackButton />
-      <div className="fixed top-4 left-16 z-40 flex flex-col gap-3">
-        <Button size="sm" variant="secondary" onClick={() => setShowModal(true)}>
-          {t.stock_add}
-        </Button>
-        <Button size="sm" variant="secondary" onClick={() => setAdjustMode("add")}>
-          {t.stock_buy}
-        </Button>
-        <Button size="sm" variant="secondary" onClick={() => setAdjustMode("subtract")}>
-          {t.stock_sell}
-        </Button>
-      </div>
-      <div className="mx-auto w-full max-w-5xl space-y-6 pt-10 sm:pt-6">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <h1 className="text-2xl font-semibold">{t.stock_title}</h1>
-          <div className="flex items-center gap-3">
-            <Button variant="outline" onClick={() => setShowModal(true)}>
-              {t.stock_add}
-            </Button>
-            <p className="text-sm text-muted-foreground max-w-md">{t.stock_desc}</p>
-          </div>
+      <div className="flex w-full max-w-6xl mx-auto gap-6 pt-12">
+        <div className="flex flex-col gap-3 self-center">
+          <Button size="sm" variant="secondary" onClick={() => setShowModal(true)}>
+            {t.stock_add}
+          </Button>
+          <Button size="sm" variant="secondary" onClick={() => setAdjustMode("add")}>
+            {t.stock_buy}
+          </Button>
+          <Button size="sm" variant="secondary" onClick={() => setAdjustMode("subtract")}>
+            {t.stock_sell}
+          </Button>
         </div>
 
-        <Card className="bg-card text-card-foreground">
-          <CardHeader>
-            <CardTitle>Current levels</CardTitle>
-            <CardDescription>On hand vs. reserved across core SKUs.</CardDescription>
-          </CardHeader>
-          <CardContent className="overflow-x-auto">
-            <table className="w-full min-w-[640px] text-sm border-collapse">
-              <thead>
-                <tr className="text-left text-muted-foreground border-b border-border">
-                  <th className="py-2 pr-3 font-medium">Stock ID</th>
-                  <th className="py-2 pr-3 font-medium">Product</th>
-                  <th className="py-2 pr-3 font-medium text-right">Available</th>
-                  <th className="py-2 pr-3 font-medium text-right">Updated</th>
-                  <th className="py-2 pr-3 font-medium text-right">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {loading ? (
-                  <tr>
-                    <td className="py-4 text-center text-muted-foreground" colSpan={5}>
-                      Loading stock...
-                    </td>
+        <div className="flex-1 space-y-6">
+          <div className="flex flex-col gap-2">
+            <h1 className="text-2xl font-semibold">{t.stock_title}</h1>
+            <p className="text-sm text-muted-foreground max-w-xl">{t.stock_desc}</p>
+          </div>
+
+          <Card className="bg-card text-card-foreground">
+            <CardHeader>
+              <CardTitle>Current levels</CardTitle>
+              <CardDescription>On hand vs. reserved across core SKUs.</CardDescription>
+            </CardHeader>
+            <CardContent className="overflow-x-auto">
+              <table className="w-full min-w-[720px] text-sm border-collapse">
+                <thead>
+                  <tr className="text-left text-muted-foreground border-b border-border">
+                    <th className="py-1 pr-3 font-medium align-bottom">Stock ID</th>
+                    <th className="py-1 pr-3 font-medium align-bottom">
+                      <div className="flex flex-col gap-1">
+                        <span>Product</span>
+                        <Input
+                          value={descFilter}
+                          onChange={(e) => setDescFilter(e.target.value)}
+                          placeholder={t.stock_filter_desc}
+                          className="h-8 w-full"
+                        />
+                      </div>
+                    </th>
+                    <th className="py-1 pr-3 font-medium text-right align-bottom">Available</th>
+                    <th className="py-1 pr-3 font-medium text-right align-bottom">Updated</th>
+                    <th className="py-1 pr-3 font-medium text-right align-bottom">Status</th>
                   </tr>
-                ) : error ? (
-                  <tr>
-                    <td className="py-4 text-center text-destructive text-sm" colSpan={5}>
-                      {error}
-                    </td>
-                  </tr>
-                ) : items.length === 0 ? (
-                  <tr>
-                    <td className="py-4 text-center text-muted-foreground" colSpan={5}>
-                      No products yet. Add one to get started.
-                    </td>
-                  </tr>
-                ) : (
-                  items.map((row) => {
-                    const status = statusLabel(row.available_quantity);
-                    return (
-                      <tr key={row.id} className="border-b border-border/60 last:border-0">
-                        <td className="py-3 pr-3 font-mono text-xs">{row.id}</td>
-                        <td className="py-3 pr-3 font-medium">{row.description}</td>
-                        <td className="py-3 pr-3 text-right font-semibold">{row.available_quantity}</td>
-                        <td className="py-3 pr-3 text-right text-sm text-muted-foreground">{formatDate(row.updated_at)}</td>
-                        <td className="py-3 pr-3 text-right">
-                          <span
-                            className={cn(
-                              "inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold",
-                              status.color
-                            )}
-                          >
-                            <span className={cn("size-2 rounded-full", status.dot)} />
-                            {status.label}
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </CardContent>
-        </Card>
+                </thead>
+                <tbody>
+                  {loading ? (
+                    <tr>
+                      <td className="py-4 text-center text-muted-foreground" colSpan={5}>
+                        Loading stock...
+                      </td>
+                    </tr>
+                  ) : error ? (
+                    <tr>
+                      <td className="py-4 text-center text-destructive text-sm" colSpan={5}>
+                        {error}
+                      </td>
+                    </tr>
+                  ) : filteredItems.length === 0 ? (
+                    <tr>
+                      <td className="py-4 text-center text-muted-foreground" colSpan={5}>
+                        No products yet. Add one to get started.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredItems.map((row) => {
+                      const status = statusLabel(row.available_quantity);
+                      return (
+                        <tr key={row.id} className="border-b border-border/60 last:border-0">
+                          <td className="py-3 pr-3 font-mono text-xs">{row.id}</td>
+                          <td className="py-3 pr-3 font-medium">{row.description}</td>
+                          <td className="py-3 pr-3 text-right font-semibold">{row.available_quantity}</td>
+                          <td className="py-3 pr-3 text-right text-sm text-muted-foreground">{formatDate(row.updated_at)}</td>
+                          <td className="py-3 pr-3 text-right">
+                            <span
+                              className={cn(
+                                "inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold",
+                                status.color
+                              )}
+                            >
+                              <span className={cn("size-2 rounded-full", status.dot)} />
+                              {status.label}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
       {showModal && (

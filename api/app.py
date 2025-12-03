@@ -217,7 +217,7 @@ def list_product_types():
 
 @app.post("/api/product-types")
 def create_product_type(payload: ProductTypeCreate):
-    if payload.unit_price_cents < 0:
+    if payload.unit_price_cents is not None and payload.unit_price_cents < 0:
         raise HTTPException(status_code=400, detail="Price must be non-negative")
 
     try:
@@ -227,7 +227,7 @@ def create_product_type(payload: ProductTypeCreate):
                 cur.execute(
                     """
                     INSERT INTO product_types (description, unit_price_cents)
-                    VALUES (%s, %s)
+                    VALUES (%s, COALESCE(%s, 0))
                     RETURNING product_type_id AS id, description, unit_price_cents, date_time_created;
                     """,
                     (payload.description, payload.unit_price_cents),
