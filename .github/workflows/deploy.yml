@@ -139,8 +139,15 @@ jobs:
           curl -sSfL "https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/v${PROXY_VERSION}/cloud-sql-proxy.linux.amd64" -o cloud-sql-proxy
           chmod +x cloud-sql-proxy
           # Use ADC from the auth step (GOOGLE_APPLICATION_CREDENTIALS)
-          ./cloud-sql-proxy "$DB_CONN" --port 5432 --address 127.0.0.1 --credentials-file "$GOOGLE_APPLICATION_CREDENTIALS" &
-          sleep 5
+          ./cloud-sql-proxy "$DB_CONN" --port 5432 --address 127.0.0.1 --credentials-file "$GOOGLE_APPLICATION_CREDENTIALS" > cloud-sql-proxy.log 2>&1 &
+          sleep 8
+          if ! pgrep -f "cloud-sql-proxy"; then
+            echo "Cloud SQL Proxy failed to start:"
+            cat cloud-sql-proxy.log || true
+            exit 1
+          fi
+          echo "Cloud SQL Proxy started. Recent logs:"
+          tail -n 40 cloud-sql-proxy.log || true
 
       - name: Apply database schema
         env:
