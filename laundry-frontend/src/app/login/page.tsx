@@ -74,7 +74,14 @@ export default function LoginPage() {
               </div>
               <div>
                 <label className="mb-1 block text-sm">Password</label>
-                <Input type="password" value={pass} onChange={(e) => setPass(e.target.value)} placeholder="••••••••" autoComplete="current-password" />
+                <Input
+                  type="password"
+                  value={pass}
+                  onChange={(e) => setPass(e.target.value)}
+                  placeholder="••••••••"
+                  autoComplete="current-password"
+                />
+                <PasswordHints value={pass} />
               </div>
               {error && <p className="text-sm text-destructive">{error}</p>}
               {success && <p className="text-sm text-emerald-500">{success}</p>}
@@ -90,5 +97,24 @@ export default function LoginPage() {
         </Card>
       </div>
     </main>
+  );
+}
+
+function PasswordHints({ value }: { value: string }) {
+  const checks = [
+    { label: "6-72 characters", ok: value.length >= 6 && value.length <= 72 },
+    { label: "At least one lowercase letter", ok: /[a-z]/.test(value) },
+    { label: "At least one uppercase letter", ok: /[A-Z]/.test(value) },
+    { label: "At least one number", ok: /\d/.test(value) },
+    { label: "At least one symbol", ok: /[^A-Za-z0-9]/.test(value) },
+  ];
+  return (
+    <ul className="mt-2 space-y-1 text-xs">
+      {checks.map((c) => (
+        <li key={c.label} className={c.ok ? "text-emerald-500" : "text-muted-foreground"}>
+          {c.label}
+        </li>
+      ))}
+    </ul>
   );
 }
