@@ -122,7 +122,34 @@ def on_startup() -> None:
     with pool.connection() as conn:
         with conn.cursor() as cur:
             cur.execute("SELECT 1;")
-            # Ensure unique index for stock upserts
+            # Ensure tables and indexes for auth + stock upserts
+            cur.execute(
+                """
+                CREATE TABLE IF NOT EXISTS users (
+                    user_id         BIGSERIAL PRIMARY KEY,
+                    username        TEXT NOT NULL UNIQUE,
+                    password_hash   TEXT NOT NULL,
+                    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    active          BOOLEAN NOT NULL DEFAULT TRUE,
+                    email           TEXT,
+                    auth_provider   TEXT NOT NULL DEFAULT 'local',
+                    google_sub      TEXT
+                );
+                """
+            )
+            cur.execute(
+                """
+                CREATE TABLE IF NOT EXISTS sessions (
+                    session_token   TEXT PRIMARY KEY,
+                    user_id         BIGINT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+                    expires_at      TIMESTAMPTZ NOT NULL,
+                    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                );
+                """
+            )
+            cur.execute("CREATE UNIQUE INDEX IF NOT EXISTS uq_users_username ON users(username);")
+            cur.execute("CREATE UNIQUE INDEX IF NOT EXISTS uq_users_email ON users(email) WHERE email IS NOT NULL;")
+            cur.execute("CREATE UNIQUE INDEX IF NOT EXISTS uq_users_google_sub ON users(google_sub) WHERE google_sub IS NOT NULL;")
             cur.execute("CREATE UNIQUE INDEX IF NOT EXISTS uq_stock_product_type_id ON stock(product_type_id);")
             cur.execute("CREATE UNIQUE INDEX IF NOT EXISTS uq_users_username ON users(username);")
 

@@ -1,28 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { API_BASE } from "@/lib/api";
-
-declare global {
-  interface Window {
-    google?: {
-      accounts: {
-        id: {
-          initialize: (opts: { client_id: string; callback: (resp: GoogleCredentialResponse) => void }) => void;
-          renderButton: (el: HTMLElement, opts: Record<string, unknown>) => void;
-        };
-      };
-    };
-  }
-}
-
-type GoogleCredentialResponse = {
-  credential: string;
-};
 
 export default function LoginPage() {
   const router = useRouter();
@@ -31,8 +14,6 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [isRegister, setIsRegister] = useState(false);
   const [busy, setBusy] = useState(false);
-  const googleRef = useRef<HTMLDivElement | null>(null);
-  const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "";
 
   // If already authenticated, bounce to home
   useEffect(() => {
@@ -41,53 +22,6 @@ export default function LoginPage() {
       if (has) router.replace("/");
     }
   }, [router]);
-
-  // Google Identity button
-  useEffect(() => {
-    if (!clientId || !googleRef.current) return;
-    const script = document.createElement("script");
-    script.src = "https://accounts.google.com/gsi/client";
-    script.async = true;
-    script.defer = true;
-    script.onload = () => {
-      if (window.google && googleRef.current) {
-        window.google.accounts.id.initialize({
-          client_id: clientId,
-          callback: async (resp: GoogleCredentialResponse) => {
-            try {
-              setError(null);
-              setBusy(true);
-              const res = await fetch(`${API_BASE.replace(/\/$/, "")}/api/auth/google`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                credentials: "include",
-                body: JSON.stringify({ id_token: resp.credential }),
-              });
-              if (!res.ok) {
-                const msg = await res.text();
-                throw new Error(msg || "Google login failed");
-              }
-              router.replace("/");
-            } catch (err: unknown) {
-              const msg = err instanceof Error ? err.message : "Google login failed";
-              setError(msg);
-            } finally {
-              setBusy(false);
-            }
-          },
-        });
-        window.google.accounts.id.renderButton(googleRef.current, {
-          theme: "outline",
-          size: "large",
-          width: 320,
-        });
-      }
-    };
-    document.head.appendChild(script);
-    return () => {
-      script.remove();
-    };
-  }, [clientId, router]);
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -140,9 +74,6 @@ export default function LoginPage() {
               <Button type="button" variant="outline" className="w-full" onClick={() => setIsRegister((v) => !v)}>
                 {isRegister ? "Back to login" : "Create account"}
               </Button>
-              <div className="text-center">
-                <div ref={googleRef} className="flex justify-center" />
-              </div>
             </form>
           </CardContent>
         </Card>
