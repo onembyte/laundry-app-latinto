@@ -78,7 +78,8 @@ class RegisterRequest(BaseModel):
 
 
 def hash_password(pw: str) -> str:
-    return pwd_context.hash(pw)
+    trimmed = pw[:72]  # bcrypt limit
+    return pwd_context.hash(trimmed)
 
 
 def verify_password(pw: str, hashed: str) -> bool:
@@ -212,6 +213,8 @@ def login(payload: LoginRequest, response: Response):
 def register(payload: RegisterRequest, response: Response):
     if len(payload.username.strip()) < 3 or len(payload.password) < 6:
         raise HTTPException(status_code=400, detail="Username/password too short")
+    if len(payload.password) > 72:
+        raise HTTPException(status_code=400, detail="Password too long (max 72 characters)")
 
     try:
         db_pool = get_pool()
