@@ -13,7 +13,7 @@ env:
   DB_INSTANCE: laundry-db
   DB_NAME: la_tinto_db
   DB_USER: onembyte
-  DB_INSTANCE_CONN: ${{ vars.PROJECT_ID }}:${{ vars.REGION }}:laundry-db
+  DB_INSTANCE_CONN: onembyte-laundry-latinto:us-central1:laundry-db
   DB_SKIP_CREATE: ${{ vars.DB_SKIP_CREATE || 'false' }}   # set to 'true' to skip instance/db/user creation
   
 
