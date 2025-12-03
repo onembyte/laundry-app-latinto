@@ -188,7 +188,7 @@ jobs:
       - name: Build & Push API image
         run: |
           API_IMAGE=${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.API_SERVICE }}:${{ github.sha }}
-          docker build -t "$API_IMAGE" ./api
+          docker build --no-cache -t "$API_IMAGE" ./api
           docker push "$API_IMAGE"
           echo "API_IMAGE=$API_IMAGE" >> $GITHUB_ENV
 
