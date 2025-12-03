@@ -11,8 +11,8 @@ env:
   API_SERVICE: laundry-api                     # (unused for now)
   FRONTEND_SERVICE: laundry-frontend
   DB_INSTANCE: laundry-db
-  DB_NAME: laundry
-  DB_USER: laundry_app
+  DB_NAME: la_tinto_db
+  DB_USER: onembyte
   DB_INSTANCE_CONN: ${{ vars.PROJECT_ID }}:${{ vars.REGION }}:laundry-db
   DB_SKIP_CREATE: ${{ vars.DB_SKIP_CREATE || 'false' }}   # set to 'true' to skip instance/db/user creation
   
@@ -100,6 +100,10 @@ jobs:
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
         run: |
           set -euo pipefail
+          if [ -z "${DB_PASSWORD:-}" ]; then
+            echo "DB_PASSWORD secret is not set; cannot create user."
+            exit 1
+          fi
           # Wait for instance to be ready (simple poll)
           for i in {1..20}; do
             STATE=$(gcloud sql instances describe "$INSTANCE" --project "$PROJECT_ID" --format="value(state)" 2>/dev/null || true)
