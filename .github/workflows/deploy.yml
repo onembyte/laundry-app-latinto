@@ -209,7 +209,7 @@ jobs:
             --add-cloudsql-instances "$DB_CONN" \
             --set-env-vars DATABASE_URL="postgresql://${DB_USER}:${DB_PASSWORD}@/${DB_NAME}?host=/cloudsql/${DB_CONN}" \
             --set-env-vars DB_POOL_MIN=1,DB_POOL_MAX=5 \
-            --traffic=latest=100
+            --traffic latest=100%
 
       # ---------- Frontend ----------
       - name: Build & Push Frontend image
