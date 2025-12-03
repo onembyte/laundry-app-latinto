@@ -16,7 +16,11 @@ app = FastAPI(title="Laundry API", version="0.1.0")
 logger = logging.getLogger(__name__)
 
 # CORS: lock this down to your domain in prod (comma-separated list supported)
-origins = [o.strip() for o in os.getenv("CORS_ORIGIN", "*").split(",") if o.strip()]
+raw_origins = os.getenv("CORS_ORIGIN", "http://localhost:3000")
+origins = [o.strip() for o in raw_origins.split(",") if o.strip()]
+# Wildcard is invalid with credentials; if only "*" was provided, fall back to common defaults
+if origins == ["*"]:
+    origins = ["http://localhost:3000", "https://francomichetti.com"]
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,

@@ -24,6 +24,14 @@ export default function LoginPage() {
     }
   }, [router]);
 
+  const onToggleMode = () => {
+    setIsRegister((v) => !v);
+    setUser("");
+    setPass("");
+    setError(null);
+    setSuccess(null);
+  };
+
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -53,7 +61,8 @@ export default function LoginPage() {
       setSuccess(isRegister ? "Account created. Redirecting..." : "Welcome back. Redirecting...");
       router.replace("/");
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Request failed";
+      const raw = err instanceof Error ? err.message : "Request failed";
+      const msg = raw === "Failed to fetch" ? "Network error contacting the server. Please retry." : raw;
       setError(msg || "Request failed");
     } finally {
       setBusy(false);
@@ -91,7 +100,7 @@ export default function LoginPage() {
                 {busy ? "Working..." : isRegister ? "Register" : "Sign in"}
               </Button>
               <div className="text-center text-sm text-muted-foreground">or</div>
-              <Button type="button" variant="outline" className="w-full" onClick={() => setIsRegister((v) => !v)}>
+              <Button type="button" variant="outline" className="w-full" onClick={onToggleMode}>
                 {isRegister ? "Back to login" : "Create account"}
               </Button>
             </form>
