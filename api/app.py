@@ -1,12 +1,16 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 import logging
 import os
+import secrets
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Response, Depends, Cookie
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool
+from passlib.context import CryptContext
+from google.oauth2 import id_token
+from google.auth.transport import requests as google_requests
 
 app = FastAPI(title="Laundry API", version="0.1.0")
 logger = logging.getLogger(__name__)
@@ -24,6 +28,10 @@ app.add_middleware(
 # Database pool
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/laundry")
 pool: ConnectionPool | None = None
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+COOKIE_SECURE = os.getenv("COOKIE_SECURE", "false").lower() == "true"
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
+ALLOWED_DOMAIN = os.getenv("GOOGLE_ALLOWED_DOMAINS", "").lower().strip()
 
 
 class Customer(BaseModel):
@@ -51,12 +59,47 @@ class CreateOrder(BaseModel):
 
 class ProductTypeCreate(BaseModel):
     description: str
-    unit_price_cents: int
+    unit_price_cents: int | None = 0
 
 
 class StockAdjust(BaseModel):
     product_type_id: int
     quantity: int
+
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+
+class RegisterRequest(BaseModel):
+    username: str
+    password: str
+
+
+def hash_password(pw: str) -> str:
+    return pwd_context.hash(pw)
+
+
+def verify_password(pw: str, hashed: str) -> bool:
+    return pwd_context.verify(pw, hashed)
+
+
+def create_session(user_id: int, hours: int = 24 * 7) -> str:
+    token = secrets.token_urlsafe(32)
+    expires = datetime.utcnow() + timedelta(hours=hours)
+    db_pool = get_pool()
+    with db_pool.connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO sessions (session_token, user_id, expires_at)
+                VALUES (%s, %s, %s)
+                """,
+                (token, user_id, expires),
+            )
+            conn.commit()
+    return token
 
 
 def get_pool() -> ConnectionPool:
@@ -81,6 +124,20 @@ def on_startup() -> None:
             cur.execute("SELECT 1;")
             # Ensure unique index for stock upserts
             cur.execute("CREATE UNIQUE INDEX IF NOT EXISTS uq_stock_product_type_id ON stock(product_type_id);")
+            cur.execute("CREATE UNIQUE INDEX IF NOT EXISTS uq_users_username ON users(username);")
+
+            admin_user = os.getenv("ADMIN_USERNAME")
+            admin_pass = os.getenv("ADMIN_PASSWORD")
+            if admin_user and admin_pass:
+                cur.execute("SELECT user_id FROM users WHERE username = %s", (admin_user,))
+                exists = cur.fetchone()
+                if not exists:
+                    cur.execute(
+                        "INSERT INTO users (username, password_hash) VALUES (%s, %s)",
+                        (admin_user, hash_password(admin_pass)),
+                    )
+                    logger.info("Seeded admin user '%s'", admin_user)
+                conn.commit()
     logger.info("DB pool initialized")
 
 
@@ -93,6 +150,148 @@ def on_shutdown() -> None:
 @app.get("/api/hello")
 def hello():
     return {"ok": True, "msg": "Laundry API up!"}
+
+
+@app.post("/api/auth/login")
+def login(payload: LoginRequest, response: Response):
+    try:
+        db_pool = get_pool()
+        with db_pool.connection() as conn:
+            with conn.cursor(row_factory=dict_row) as cur:
+                cur.execute("SELECT user_id, password_hash, active FROM users WHERE username = %s", (payload.username,))
+                row = cur.fetchone()
+                if not row or not row["active"] or not verify_password(payload.password, row["password_hash"]):
+                    raise HTTPException(status_code=401, detail="Invalid credentials")
+
+                token = create_session(row["user_id"])
+                response.set_cookie(
+                    "session",
+                    token,
+                    httponly=True,
+                    secure=COOKIE_SECURE,
+                    samesite="lax",
+                    max_age=60 * 60 * 24 * 7,
+                    path="/",
+                )
+                return {"ok": True}
+    except HTTPException:
+        raise
+    except Exception as exc:  # pragma: no cover
+        logger.exception("Failed to login: %s", exc)
+        raise HTTPException(status_code=500, detail="Failed to login")
+
+
+@app.post("/api/auth/register")
+def register(payload: RegisterRequest, response: Response):
+    if len(payload.username.strip()) < 3 or len(payload.password) < 6:
+        raise HTTPException(status_code=400, detail="Username/password too short")
+
+    try:
+        db_pool = get_pool()
+        with db_pool.connection() as conn:
+            with conn.cursor(row_factory=dict_row) as cur:
+                cur.execute("SELECT 1 FROM users WHERE username = %s", (payload.username,))
+                if cur.fetchone():
+                    raise HTTPException(status_code=409, detail="Username already exists")
+
+                cur.execute(
+                    "INSERT INTO users (username, password_hash) VALUES (%s, %s) RETURNING user_id",
+                    (payload.username, hash_password(payload.password)),
+                )
+                row = cur.fetchone()
+                token = create_session(row["user_id"])
+                response.set_cookie(
+                    "session",
+                    token,
+                    httponly=True,
+                    secure=COOKIE_SECURE,
+                    samesite="lax",
+                    max_age=60 * 60 * 24 * 7,
+                    path="/",
+                )
+                return {"ok": True}
+    except HTTPException:
+        raise
+    except Exception as exc:  # pragma: no cover
+        logger.exception("Failed to register: %s", exc)
+        raise HTTPException(status_code=500, detail="Failed to register")
+
+
+@app.post("/api/auth/logout")
+def logout(response: Response, session: str | None = Cookie(default=None)):
+    if session:
+        try:
+            db_pool = get_pool()
+            with db_pool.connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute("DELETE FROM sessions WHERE session_token = %s", (session,))
+                    conn.commit()
+        except Exception:  # pragma: no cover
+            logger.exception("Failed to delete session")
+    response.delete_cookie("session", path="/")
+    return {"ok": True}
+
+
+@app.post("/api/auth/google")
+def google_login(payload: dict, response: Response):
+    if not GOOGLE_CLIENT_ID:
+        raise HTTPException(status_code=500, detail="Google login not configured")
+    token = payload.get("id_token")
+    if not token:
+        raise HTTPException(status_code=400, detail="Missing id_token")
+
+    try:
+        idinfo = id_token.verify_oauth2_token(token, google_requests.Request(), GOOGLE_CLIENT_ID)
+        if idinfo["iss"] not in ["accounts.google.com", "https://accounts.google.com"]:
+            raise HTTPException(status_code=401, detail="Invalid Google token issuer")
+        email = (idinfo.get("email") or "").lower()
+        sub = idinfo.get("sub")
+        if ALLOWED_DOMAIN and email and not email.endswith("@" + ALLOWED_DOMAIN):
+            raise HTTPException(status_code=403, detail="Email domain not allowed")
+        if not sub:
+            raise HTTPException(status_code=401, detail="Invalid Google token")
+
+        db_pool = get_pool()
+        with db_pool.connection() as conn:
+            with conn.cursor(row_factory=dict_row) as cur:
+                cur.execute(
+                    """
+                    SELECT user_id, active FROM users WHERE google_sub = %s OR email = %s
+                    """,
+                    (sub, email),
+                )
+                row = cur.fetchone()
+                if row and not row["active"]:
+                    raise HTTPException(status_code=403, detail="Account disabled")
+
+                if not row:
+                    cur.execute(
+                        """
+                        INSERT INTO users (username, email, google_sub, auth_provider, password_hash)
+                        VALUES (%s, %s, %s, %s, %s)
+                        RETURNING user_id
+                        """,
+                        (email or f"google_{sub}", email or None, sub, "google", ""),
+                    )
+                    row = cur.fetchone()
+                user_id = row["user_id"]
+
+                session_token = create_session(user_id)
+                response.set_cookie(
+                    "session",
+                    session_token,
+                    httponly=True,
+                    secure=COOKIE_SECURE,
+                    samesite="lax",
+                    max_age=60 * 60 * 24 * 7,
+                    path="/",
+                )
+                return {"ok": True}
+    except HTTPException:
+        raise
+    except Exception as exc:  # pragma: no cover
+        logger.exception("Failed Google login: %s", exc)
+        raise HTTPException(status_code=500, detail="Failed Google login")
 
 
 @app.post("/api/orders")

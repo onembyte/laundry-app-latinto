@@ -11,6 +11,31 @@ CREATE TABLE IF NOT EXISTS customers (
     UNIQUE (name, phone)
 );
 
+CREATE TABLE IF NOT EXISTS users (
+    user_id         BIGSERIAL PRIMARY KEY,
+    username        TEXT NOT NULL UNIQUE,
+    password_hash   TEXT NOT NULL,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    active          BOOLEAN NOT NULL DEFAULT TRUE,
+    email           TEXT,
+    auth_provider   TEXT NOT NULL DEFAULT 'local',
+    google_sub      TEXT
+);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS email TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS auth_provider TEXT NOT NULL DEFAULT 'local';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS google_sub TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_users_email ON users(email) WHERE email IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_users_google_sub ON users(google_sub) WHERE google_sub IS NOT NULL;
+
+CREATE TABLE IF NOT EXISTS sessions (
+    session_token   TEXT PRIMARY KEY,
+    user_id         BIGINT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    expires_at      TIMESTAMPTZ NOT NULL,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at);
+
 -- Inventory catalog: productos en venta, insumos o variantes de LA TINTO
 CREATE TABLE IF NOT EXISTS product_types (
     product_type_id   INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
