@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Boxes, Settings } from "lucide-react";
+import { BarChart3, Boxes, Settings } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import Glow from "@/components/ui/glow";
@@ -38,6 +38,15 @@ export default function SettingsMenu() {
 
   return (
     <div className="fixed top-4 right-4 z-50 flex items-center gap-3">
+      <div className="relative group isolate inline-block">
+        <Glow roundedClass="rounded-full" />
+        <Button asChild variant="outline" size="icon" className="relative z-10 rounded-full shadow-sm hover:shadow">
+          <Link href="/dashboard" aria-label={t.dashboard}>
+            <BarChart3 className="size-5" />
+          </Link>
+        </Button>
+      </div>
+
       <div className="relative group isolate inline-block">
         <Glow roundedClass="rounded-full" />
         <Button asChild variant="outline" size="icon" className="relative z-10 rounded-full shadow-sm hover:shadow">

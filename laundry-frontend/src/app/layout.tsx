@@ -3,7 +3,7 @@ import Providers from "./providers";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "La Tinto",
+  title: "LA TINTO",
   icons: {
     icon: "/favicon.ico",
   },
