@@ -58,6 +58,9 @@ export default function LoginPage() {
         if (res.status === 401) msg = "Invalid credentials";
         throw new Error(msg);
       }
+      // Set a front-end session marker so middleware/client checks can pass on this domain
+      const maxAge = 60 * 60 * 24 * 7;
+      document.cookie = `session=1; Path=/; Max-Age=${maxAge}; SameSite=Lax`;
       setSuccess(isRegister ? "Account created. Redirecting..." : "Welcome back. Redirecting...");
       router.replace("/");
     } catch (err: unknown) {
