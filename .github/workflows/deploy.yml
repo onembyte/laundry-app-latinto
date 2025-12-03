@@ -139,7 +139,7 @@ jobs:
           curl -sSfL "https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/v${PROXY_VERSION}/cloud-sql-proxy.linux.amd64" -o cloud-sql-proxy
           chmod +x cloud-sql-proxy
           # Use ADC from the auth step (GOOGLE_APPLICATION_CREDENTIALS)
-          ./cloud-sql-proxy "$DB_CONN" --port 5432 --address 127.0.0.1 --credentials-file "$GOOGLE_APPLICATION_CREDENTIALS" > cloud-sql-proxy.log 2>&1 &
+          ./cloud-sql-proxy "$DB_CONN" --port 5432 --address 34.63.71.124 --credentials-file "$GOOGLE_APPLICATION_CREDENTIALS" > cloud-sql-proxy.log 2>&1 &
           sleep 8
           if ! pgrep -f "cloud-sql-proxy"; then
             echo "Cloud SQL Proxy failed to start:"
@@ -160,6 +160,17 @@ jobs:
             echo "DB_PASSWORD secret is not set; cannot apply schema."
             exit 1
           fi
+          if ! pgrep -f "cloud-sql-proxy" >/dev/null; then
+            echo "Cloud SQL Proxy is not running. Recent logs:"
+            cat cloud-sql-proxy.log || true
+            exit 1
+          fi
+          # Quick readiness check
+          PGPASSWORD="${DB_PASSWORD}" pg_isready -h 127.0.0.1 -p 5432 -U "${DB_USER}" -d "${DB_NAME}" || {
+            echo "pg_isready failed. Proxy logs:"
+            cat cloud-sql-proxy.log || true
+            exit 1
+          }
           PGPASSWORD="${DB_PASSWORD}" psql \
             -h 127.0.0.1 \
             -p 5432 \
