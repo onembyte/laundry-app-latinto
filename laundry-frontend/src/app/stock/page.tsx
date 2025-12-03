@@ -34,6 +34,7 @@ export default function StockPage() {
   const [adjustMode, setAdjustMode] = useState<"add" | "subtract" | null>(null);
   const [adjustForm, setAdjustForm] = useState({ product_type_id: "", quantity: "" });
   const [descFilter, setDescFilter] = useState("");
+  const [disableId, setDisableId] = useState("");
 
   const apiBase = useMemo(() => (API_BASE || "").replace(/\/$/, ""), []);
   const apiUrl = useCallback((path: string) => (apiBase ? `${apiBase}${path}` : path), [apiBase]);
@@ -102,6 +103,44 @@ export default function StockPage() {
         }
       }
       setForm({ description: "", price: "" });
+      setShowModal(false);
+      setError(null);
+    } catch (err: unknown) {
+      setError(errorMessage(err));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const onDisable = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!disableId) {
+      setError("Select a product to disable");
+      return;
+    }
+    try {
+      setSubmitting(true);
+      const res = await fetch(apiUrl("/api/product-types/disable"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ product_type_id: Number(disableId) }),
+      });
+      if (!res.ok) {
+        const msg = await res.text();
+        throw new Error(msg || "Failed to disable product");
+      }
+      const [stockRes, productRes] = await Promise.all([fetch(apiUrl("/api/stock")), fetch(apiUrl("/api/product-types"))]);
+      if (stockRes.ok) {
+        const stockJson = await stockRes.json();
+        const stockList = Array.isArray(stockJson.data) ? stockJson.data : [];
+        setItems(stockList);
+      }
+      if (productRes.ok) {
+        const productJson = await productRes.json();
+        const list = Array.isArray(productJson.data) ? productJson.data : [];
+        setProducts(list.map((p: ProductOption) => ({ id: p.id, description: p.description })));
+      }
+      setDisableId("");
       setShowModal(false);
       setError(null);
     } catch (err: unknown) {
@@ -322,38 +361,67 @@ export default function StockPage() {
               <h2 className="text-lg font-semibold">{t.stock_form_title}</h2>
               <p className="text-sm text-muted-foreground">{t.stock_form_desc}</p>
             </div>
-            <form onSubmit={onSubmit} className="p-6 space-y-4">
-              <div className="space-y-2">
-                <label className="block text-sm font-medium">{t.stock_form_description}</label>
-                <Input
-                  value={form.description}
-                  onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-                  placeholder="Shirts, Pants, etc."
-                  required
-                />
+            <div className="p-6 space-y-6">
+              <form onSubmit={onSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium">{t.stock_form_description}</label>
+                  <Input
+                    value={form.description}
+                    onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+                    placeholder="Shirts, Pants, etc."
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium">{t.stock_form_price}</label>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={form.price}
+                    onChange={(e) => setForm((f) => ({ ...f, price: e.target.value }))}
+                    placeholder="12.00"
+                    required
+                  />
+                </div>
+                <div className="flex items-center justify-end gap-3 pt-2">
+                  <Button type="button" variant="ghost" onClick={() => setShowModal(false)}>
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={submitting}>
+                    {submitting ? "Saving..." : t.stock_form_submit}
+                  </Button>
+                </div>
+              </form>
+
+              <div className="border-t border-border pt-4 space-y-3">
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium">Disable product</label>
+                  <select
+                    value={disableId}
+                    onChange={(e) => setDisableId(e.target.value)}
+                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                  >
+                    <option value="">Choose a product</option>
+                    {products.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.description} (#{item.id})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex items-center justify-end gap-3">
+                  <Button type="button" variant="ghost" onClick={() => setShowModal(false)}>
+                    Cancel
+                  </Button>
+                  <Button type="button" variant="destructive" disabled={!disableId || submitting} onClick={onDisable}>
+                    {submitting ? "Working..." : "Disable"}
+                  </Button>
+                </div>
               </div>
-              <div className="space-y-2">
-                <label className="block text-sm font-medium">{t.stock_form_price}</label>
-                <Input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={form.price}
-                  onChange={(e) => setForm((f) => ({ ...f, price: e.target.value }))}
-                  placeholder="12.00"
-                  required
-                />
-              </div>
+
               {error && <p className="text-sm text-destructive">{error}</p>}
-              <div className="flex items-center justify-end gap-3 pt-2">
-                <Button type="button" variant="ghost" onClick={() => setShowModal(false)}>
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={submitting}>
-                  {submitting ? "Saving..." : t.stock_form_submit}
-                </Button>
-              </div>
-            </form>
+            </div>
           </div>
         </div>
       )}

@@ -41,8 +41,10 @@ CREATE TABLE IF NOT EXISTS product_types (
     product_type_id   INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     description       VARCHAR NOT NULL,
     unit_price_cents  INTEGER NOT NULL DEFAULT 0,
-    date_time_created TIMESTAMP NOT NULL DEFAULT NOW()
+    date_time_created TIMESTAMP NOT NULL DEFAULT NOW(),
+    active            BOOLEAN NOT NULL DEFAULT TRUE
 );
+ALTER TABLE product_types ADD COLUMN IF NOT EXISTS active BOOLEAN NOT NULL DEFAULT TRUE;
 ALTER TABLE product_types
     ADD COLUMN IF NOT EXISTS unit_price_cents INTEGER NOT NULL DEFAULT 0;
 

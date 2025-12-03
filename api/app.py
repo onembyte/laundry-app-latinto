@@ -15,15 +15,16 @@ from google.auth.transport import requests as google_requests
 app = FastAPI(title="Laundry API", version="0.1.0")
 logger = logging.getLogger(__name__)
 
-# CORS: lock this down to your domain in prod (comma-separated list supported)
-raw_origins = os.getenv("CORS_ORIGIN", "http://localhost:3000")
+# CORS: explicit allowlist or regex; never wildcard with credentials
+raw_origins = os.getenv("CORS_ORIGIN", "http://localhost:3000,https://francomichetti.com")
 origins = [o.strip() for o in raw_origins.split(",") if o.strip()]
-# Wildcard is invalid with credentials; if only "*" was provided, fall back to common defaults
+origin_regex = os.getenv("CORS_ORIGIN_REGEX", None)
 if origins == ["*"]:
     origins = ["http://localhost:3000", "https://francomichetti.com"]
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
+    allow_origin_regex=origin_regex,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -338,6 +339,31 @@ def google_login(payload: dict, response: Response):
         raise HTTPException(status_code=500, detail="Failed Google login")
 
 
+@app.post("/api/product-types/disable")
+def disable_product_type(payload: dict):
+    product_type_id = payload.get("product_type_id")
+    if not product_type_id:
+        raise HTTPException(status_code=400, detail="product_type_id is required")
+    try:
+        db_pool = get_pool()
+        with db_pool.connection() as conn:
+            with conn.cursor(row_factory=dict_row) as cur:
+                cur.execute("SELECT 1 FROM product_types WHERE product_type_id = %s", (product_type_id,))
+                if cur.fetchone() is None:
+                    raise HTTPException(status_code=404, detail="Product type not found")
+                cur.execute(
+                    "UPDATE product_types SET active = FALSE WHERE product_type_id = %s RETURNING product_type_id",
+                    (product_type_id,),
+                )
+                conn.commit()
+                return {"ok": True}
+    except HTTPException:
+        raise
+    except Exception as exc:  # pragma: no cover
+        logger.exception("Failed to disable product type: %s", exc)
+        raise HTTPException(status_code=500, detail="Failed to disable product type")
+
+
 @app.post("/api/orders")
 def create_order(payload: CreateOrder):
     if not payload.items:
@@ -451,6 +477,7 @@ def list_product_types():
                         COALESCE(s.updated_at, pt.date_time_created) AS updated_at
                     FROM product_types pt
                     LEFT JOIN stock s ON s.product_type_id = pt.product_type_id
+                    WHERE pt.active = TRUE
                     ORDER BY pt.product_type_id DESC;
                     """
                 )
@@ -505,7 +532,7 @@ def stock_add(payload: StockAdjust):
         db_pool = get_pool()
         with db_pool.connection() as conn:
             with conn.cursor(row_factory=dict_row) as cur:
-                cur.execute("SELECT 1 FROM product_types WHERE product_type_id = %s", (payload.product_type_id,))
+                cur.execute("SELECT 1 FROM product_types WHERE product_type_id = %s AND active = TRUE", (payload.product_type_id,))
                 if cur.fetchone() is None:
                     raise HTTPException(status_code=404, detail="Product type not found")
 
@@ -583,6 +610,7 @@ def list_stock():
                         s.updated_at
                     FROM stock s
                     JOIN product_types pt ON pt.product_type_id = s.product_type_id
+                    WHERE pt.active = TRUE
                     ORDER BY s.updated_at DESC NULLS LAST, s.stock_id DESC;
                     """
                 )
