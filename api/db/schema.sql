@@ -11,6 +11,22 @@ CREATE TABLE IF NOT EXISTS customers (
     UNIQUE (name, phone)
 );
 
+-- Inventory catalog: productos en venta, insumos o variantes de LA TINTO
+CREATE TABLE IF NOT EXISTS product_types (
+    product_type_id   INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    description       VARCHAR NOT NULL,
+    date_time_created TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+-- Información de stock
+CREATE TABLE IF NOT EXISTS stock (
+    stock_id           INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    product_type_id    INTEGER NOT NULL REFERENCES product_types(product_type_id),
+    available_quantity INTEGER NOT NULL DEFAULT 0,
+    updated_at         TIMESTAMP NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_stock_product_type_id ON stock(product_type_id);
+
 CREATE TABLE IF NOT EXISTS orders (
     id                  BIGSERIAL PRIMARY KEY,
     customer_id         BIGINT NOT NULL REFERENCES customers(id),
