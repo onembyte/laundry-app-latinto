@@ -47,12 +47,14 @@ export default function LoginPage() {
           if (txt) msg = txt;
         }
         if (res.status === 409) msg = "Username already exists";
+        if (res.status === 401) msg = "Invalid credentials";
         throw new Error(msg);
       }
+      setSuccess(isRegister ? "Account created. Redirecting..." : "Welcome back. Redirecting...");
       router.replace("/");
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Request failed";
-      setError(msg);
+      setError(msg || "Request failed");
     } finally {
       setBusy(false);
     }
@@ -81,7 +83,7 @@ export default function LoginPage() {
                   placeholder="••••••••"
                   autoComplete="current-password"
                 />
-                <PasswordHints value={pass} />
+                {isRegister && <PasswordHints value={pass} />}
               </div>
               {error && <p className="text-sm text-destructive">{error}</p>}
               {success && <p className="text-sm text-emerald-500">{success}</p>}
